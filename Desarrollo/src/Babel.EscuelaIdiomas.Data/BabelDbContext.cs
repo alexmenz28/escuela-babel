@@ -35,8 +35,9 @@ public class BabelDbContext : DbContext
         modelBuilder.Entity<Modulo>().ToTable("Modulo");
         modelBuilder.Entity<Horario>().ToTable("Horario");
         modelBuilder.Entity<Grupo>().ToTable("Grupo");
-        modelBuilder.Entity<Inscripcion>().ToTable("Inscripcion");
-        modelBuilder.Entity<Nota>().ToTable("Nota");
+        // Tablas con triggers: SQL Server no permite OUTPUT en INSERT/UPDATE
+        modelBuilder.Entity<Inscripcion>().ToTable("Inscripcion", tb => tb.UseSqlOutputClause(false));
+        modelBuilder.Entity<Nota>().ToTable("Nota", tb => tb.UseSqlOutputClause(false));
 
         modelBuilder.Entity<Curso>(e =>
         {

@@ -65,7 +65,7 @@
         Cargar();
     }
 
-    private void Cargar() => alumnos = Db.Alumnos.OrderBy(a => a.Apellidos).ToList();
+    private void Cargar() => alumnos = Db.Alumnos.OrderBy(a => a.Id).ToList();
 
     private void AbrirNuevo() { nuevo = new Alumno { FechaRegistro = DateTime.UtcNow }; mostrarModal = true; }
     private void CerrarModal() => mostrarModal = false;

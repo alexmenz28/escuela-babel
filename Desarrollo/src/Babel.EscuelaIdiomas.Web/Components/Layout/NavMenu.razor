@@ -44,7 +44,7 @@
                 </div>
             }
             <div class="nav-item px-3">
-                <a class="nav-link" href="#" @onclick:preventDefault="true" @onclick="CerrarSesion">Cerrar sesión</a>
+                <NavLink class="nav-link" href="logout">Cerrar sesión</NavLink>
             </div>
         }
         else
@@ -58,11 +58,4 @@
 
 @code {
     [Inject] private AuthService Auth { get; set; } = null!;
-    [Inject] private NavigationManager Nav { get; set; } = null!;
-
-    private void CerrarSesion()
-    {
-        Auth.SignOut();
-        Nav.NavigateTo("/login", forceLoad: true);
-    }
 }

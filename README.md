@@ -11,7 +11,7 @@ Sistema administrativo para la Escuela de Idiomas Babel: gestión de cursos, ins
 
 ## Ejecución rápida
 
-1. Ejecutar los scripts en **Base de datos/Scripts/** en orden (01 → 05).
+1. Ejecutar los scripts en **Base de datos/Scripts/** en orden (01 → 05; el 05 es opcional para datos de prueba). Opcional: **06** para vaciar alumnos/asignaciones y reiniciar IDs.
 2. En **Desarrollo**: `dotnet run --project src/Babel.EscuelaIdiomas.Web` (desde la carpeta `Desarrollo`).
 3. Entrar con **admin** / **admin123**.
 

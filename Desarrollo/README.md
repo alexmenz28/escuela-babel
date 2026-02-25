@@ -11,7 +11,7 @@ Aplicación web que permite:
 - Gestionar **módulos** (periodos lectivos), **horarios**, **profesores** y **alumnos**.
 - **Inscribir** alumnos a horarios por módulo (sin duplicar por horario).
 - **Organizar cursos** mediante un procedimiento almacenado que crea grupos, asigna aulas (máx. 12) y profesores, y reparte alumnos (≥16 → 2 grupos de 8; 4–15 → 1 grupo de 16).
-- **Reportes**: alumnos por curso, historial por estudiante, lista de alumnos por grupo (imprimible).
+- **Reportes**: alumnos por curso, historial por estudiante, lista de alumnos por grupo con nombre del profesor (imprimir).
 - **Rol profesor**: ver grupos asignados y cargar **notas** por alumno.
 
 ---
@@ -46,7 +46,7 @@ Arquitectura en dos capas: presentación (Blazor Server) y acceso a datos (EF Co
 ```
 
 - **Web**: interfaz Blazor Server (InteractiveServer), rutas por rol (Administrador / Profesor), layout con menú lateral.
-- **Data**: entidades y `BabelDbContext` con convención **snake_case** para columnas (EFCore.NamingConventions), alineado con el DDL de la base de datos.
+- **Data**: entidades y `BabelDbContext` con convención **snake_case** para columnas (EFCore.NamingConventions) y `UseSqlOutputClause(false)` en tablas con triggers (Nota, Inscripcion), alineado con el DDL.
 - **Base de datos**: scripts en `../Base de datos/Scripts/` (DDL, datos iniciales, triggers, SP de asignación, datos de prueba).
 
 ---
@@ -96,6 +96,7 @@ Desarrollo/
 │       │   ├── Pages/
 │       │   │   ├── Home.razor
 │       │   │   ├── Login.razor
+│       │   │   ├── Logout.razor             # Cierre de sesión (redirige a /login)
 │       │   │   ├── Modulos.razor
 │       │   │   ├── Horarios.razor
 │       │   │   ├── Profesores.razor
@@ -140,7 +141,8 @@ Los scripts se ejecutan en este orden:
 | 2 | `02_DatosIniciales.sql` | Idiomas, niveles, cursos, aulas, roles |
 | 3 | `03_Triggers.sql` | Cupo por grupo, validación profesor en notas |
 | 4 | `04_sp_AsignacionAutomatica.sql` | Asignación automática de grupos |
-| 5 | `05_DatosPrueba.sql` | (Opcional) Módulo, horarios, alumnos, profesores, inscripciones de prueba |
+| 5 | `05_DatosPrueba.sql` | (Opcional) Módulo, 9 horarios, N alumnos y M profesores (variables); opción de insertar inscripciones |
+| 6 | `06_LimpiarEstudiantesYAsignaciones.sql` | (Opcional) Vacía Nota, Inscripcion, Grupo, Alumno, Horario, Modulo, Profesor y reinicia IDs; deja idiomas, niveles, cursos, aulas, roles, usuarios |
 
 Detalle y comandos `sqlcmd` en **`../Base de datos/Scripts/README.md`**.
 
@@ -221,8 +223,8 @@ Tras la primera ejecución se crea un usuario administrador si no existe ninguno
 | **Alumnos** | Alta y listado |
 | **Inscribir alumno** | Módulo + alumno + horario (evita doble inscripción en el mismo horario) |
 | **Organizar cursos** | Ejecuta `sp_AsignacionAutomatica` para el módulo elegido |
-| **Reportes** | Alumnos por curso, historial por estudiante, lista por grupo (imprimible) |
-| **Cerrar sesión** | Cierra la sesión |
+| **Reportes** | Alumnos por curso, historial por estudiante, lista por grupo con profesor (imprimir) |
+| **Cerrar sesión** | Enlace a `/logout`; cierra sesión y redirige al login |
 
 ### Profesor
 
@@ -258,7 +260,7 @@ Si ejecutaste **05_DatosPrueba.sql**, puedes usar el módulo «Módulo Prueba 20
 1. **Inscribir alumno a curso** – `/inscripciones` (módulo, alumno, horario; sin duplicar por horario).
 2. **Organizar cursos** – `/organizar-cursos` – ejecuta `sp_AsignacionAutomatica`.
 3. **Registrar notas** – `/mis-grupos` – el profesor ve sus grupos y carga/edita notas.
-4. **Reportes** – `/reportes` – alumnos por curso, historial por estudiante, lista por grupo (imprimible).
+4. **Reportes** – `/reportes` – alumnos por curso, historial por estudiante, lista por grupo con profesor (imprimir).
 
 ---
 

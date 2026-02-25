@@ -58,6 +58,7 @@
             @foreach (var g in listasPorGrupo)
             {
                 <div class="border rounded p-3 mb-3">
+                    <div class="text-muted small mb-1">Profesor: @g.NombreProfesor</div>
                     <strong>@g.NombreGrupo</strong> — @g.CodigoCurso · @g.DiaSemana · Aula @g.NombreAula
                     <table class="table table-sm mt-2 mb-0">
                         <thead><tr><th>#</th><th>Apellidos</th><th>Nombre</th><th>Documento</th><th>Email</th></tr></thead>
@@ -112,21 +113,26 @@
             .Where(g => g.Horario.IdModulo == idModulo)
             .Include(g => g.Horario).ThenInclude(h => h!.Curso)
             .Include(g => g.Aula)
+            .Include(g => g.Profesor)
             .OrderBy(g => g.Horario!.Curso!.Codigo).ThenBy(g => g.NombreGrupo)
             .ToList();
-        var grupoIds = grupos.Select(g => g.Id).ToList();
-        var alumnosPorGrupoId = Db.Inscripciones
-            .Where(i => i.IdGrupo != null && grupoIds.Contains(i.IdGrupo.Value) && i.Estado == "activo")
+        var grupoIds = grupos.Select(g => g.Id).ToHashSet();
+        // Inscripciones del módulo con grupo asignado (por horario del módulo, más fiable que filtrar por grupoIds en SQL)
+        var inscripcionesConGrupo = Db.Inscripciones
+            .Where(i => i.Estado == "activo" && i.IdGrupo != null && horarioIds.Contains(i.IdHorario))
             .Include(i => i.Alumno)
-            .ToList()
+            .ToList();
+        var alumnosPorGrupoId = inscripcionesConGrupo
+            .Where(i => i.IdGrupo.HasValue && grupoIds.Contains(i.IdGrupo.Value))
             .GroupBy(i => i.IdGrupo!.Value)
-            .ToDictionary(g => g.Key, g => g.Select(i => i.Alumno!).OrderBy(a => a.Apellidos).ToList());
+            .ToDictionary(g => g.Key, g => g.Select(i => i.Alumno!).Where(a => a != null).OrderBy(a => a.Apellidos).ToList());
         listasPorGrupo = grupos.Select(g => new ListaGrupo
         {
             NombreGrupo = g.NombreGrupo,
             CodigoCurso = g.Horario?.Curso?.Codigo ?? "",
             DiaSemana = g.Horario?.DiaSemana ?? "",
             NombreAula = g.Aula?.Nombre ?? "",
+            NombreProfesor = g.Profesor != null ? $"{g.Profesor.Nombre} {g.Profesor.Apellidos}".Trim() : "Sin asignar",
             Alumnos = alumnosPorGrupoId.TryGetValue(g.Id, out var lista) ? lista : new List<Alumno>()
         }).ToList();
     }
@@ -153,5 +159,5 @@
 
     private class CursoCantidad { public string Codigo { get; set; } = ""; public int Cantidad { get; set; } }
     private class HistorialItem { public string CodigoCurso { get; set; } = ""; public string NombreModulo { get; set; } = ""; public decimal? ValorNota { get; set; } }
-    private class ListaGrupo { public string NombreGrupo { get; set; } = ""; public string CodigoCurso { get; set; } = ""; public string DiaSemana { get; set; } = ""; public string NombreAula { get; set; } = ""; public List<Alumno> Alumnos { get; set; } = new(); }
+    private class ListaGrupo { public string NombreGrupo { get; set; } = ""; public string CodigoCurso { get; set; } = ""; public string DiaSemana { get; set; } = ""; public string NombreAula { get; set; } = ""; public string NombreProfesor { get; set; } = ""; public List<Alumno> Alumnos { get; set; } = new(); }
 }
