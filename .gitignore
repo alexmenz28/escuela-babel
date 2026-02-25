@@ -28,3 +28,7 @@ secrets.json
 # OS
 Thumbs.db
 .DS_Store
+
+# Documentación local / no subir al repo
+*.docx
+Guía/
