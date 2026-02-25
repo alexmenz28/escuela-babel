@@ -1,0 +1,152 @@
+@page "/profesores"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Profesores - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Profesores</h2>
+    <p class="text-muted">Se asignan a los grupos al ejecutar «Organizar cursos».</p>
+
+    <button class="btn btn-primary mb-3" @onclick="AbrirNuevo">Nuevo profesor</button>
+
+    <table class="table table-sm table-bordered">
+        <thead><tr><th>Nombre</th><th>Apellidos</th><th>Email</th><th>Usuario</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var p in profesores)
+            {
+                var tieneUsuario = usuariosPorProfesor.ContainsKey(p.Id);
+                <tr>
+                    <td>@p.Nombre</td>
+                    <td>@p.Apellidos</td>
+                    <td>@p.Email</td>
+                    <td>@(tieneUsuario ? usuariosPorProfesor[p.Id] : "—")</td>
+                    <td>@if (!tieneUsuario) { <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirCrearUsuario(p)">Crear usuario</button> }</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (mostrarModal)
+    {
+        <div class="modal show d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header"><h5>Nuevo profesor</h5></div>
+                    <EditForm Model="@nuevo" OnValidSubmit="@Guardar">
+                        <DataAnnotationsValidator />
+                        <div class="modal-body">
+                            <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="nuevo.Nombre" /></div>
+                            <div class="mb-2"><label class="form-label">Apellidos</label><InputText class="form-control" @bind-Value="nuevo.Apellidos" /></div>
+                            <div class="mb-2"><label class="form-label">Email</label><InputText class="form-control" @bind-Value="nuevo.Email" /></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (mostrarModalUsuario)
+    {
+        <div class="modal show d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header"><h5>Crear usuario para @profesorSeleccionado?.Apellidos, @profesorSeleccionado?.Nombre</h5></div>
+                    <EditForm Model="@usuarioModel" OnValidSubmit="@GuardarUsuario">
+                        <DataAnnotationsValidator />
+                        <div class="modal-body">
+                            <div class="mb-2"><label class="form-label">Nombre de usuario</label><InputText class="form-control" @bind-Value="usuarioModel.NombreUsuario" placeholder="Ej: jperez" /></div>
+                            <div class="mb-2"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" @bind-Value="usuarioModel.Password" /></div>
+                            @if (!string.IsNullOrEmpty(mensajeUsuario)) { <div class="alert alert-danger small">@mensajeUsuario</div> }
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModalUsuario">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Crear usuario</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private List<Profesor> profesores = new();
+    private Dictionary<int, string> usuariosPorProfesor = new();
+    private bool mostrarModal, mostrarModalUsuario;
+    private Profesor nuevo = new();
+    private Profesor? profesorSeleccionado;
+    private UsuarioModel usuarioModel = new();
+    private string? mensajeUsuario;
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        Cargar();
+    }
+
+    private void Cargar()
+    {
+        profesores = Db.Profesores.OrderBy(p => p.Apellidos).ToList();
+        usuariosPorProfesor = Db.Usuarios.Where(u => u.IdProfesor != null).ToDictionary(u => u.IdProfesor!.Value, u => u.NombreUsuario);
+    }
+
+    private void AbrirNuevo() { nuevo = new Profesor(); mostrarModal = true; }
+    private void CerrarModal() => mostrarModal = false;
+
+    private void Guardar()
+    {
+        Db.Profesores.Add(nuevo);
+        Db.SaveChanges();
+        CerrarModal();
+        Cargar();
+    }
+
+    private void AbrirCrearUsuario(Profesor p)
+    {
+        profesorSeleccionado = p;
+        usuarioModel = new UsuarioModel();
+        mensajeUsuario = null;
+        mostrarModalUsuario = true;
+    }
+
+    private void CerrarModalUsuario() { mostrarModalUsuario = false; profesorSeleccionado = null; }
+
+    private void GuardarUsuario()
+    {
+        mensajeUsuario = null;
+        if (profesorSeleccionado == null) return;
+        if (Db.Usuarios.Any(u => u.NombreUsuario == usuarioModel.NombreUsuario))
+        {
+            mensajeUsuario = "Ese nombre de usuario ya existe.";
+            return;
+        }
+        var rolProfesor = Db.Roles.FirstOrDefault(r => r.Nombre == "Profesor")?.Id ?? 2;
+        Db.Usuarios.Add(new Usuario
+        {
+            NombreUsuario = usuarioModel.NombreUsuario ?? "",
+            ClaveHash = PasswordHelper.Hash(usuarioModel.Password ?? ""),
+            IdRol = rolProfesor,
+            IdProfesor = profesorSeleccionado.Id,
+            Activo = true,
+            FechaCreacion = DateTime.UtcNow
+        });
+        Db.SaveChanges();
+        CerrarModalUsuario();
+        Cargar();
+    }
+
+    private class UsuarioModel
+    {
+        public string? NombreUsuario { get; set; }
+        public string? Password { get; set; }
+    }
+}

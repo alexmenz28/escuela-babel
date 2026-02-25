@@ -1,0 +1,117 @@
+@page "/horarios"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Horarios - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Horarios por módulo</h2>
+    <p class="text-muted">Defina en qué día y hora se dicta cada curso dentro de un módulo.</p>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Módulo</label>
+            <select class="form-select" @bind="idModulo" @bind:after="CargarHorarios">
+                <option value="0">-- Seleccione módulo --</option>
+                @foreach (var m in modulos)
+                {
+                    <option value="@m.Id">@m.Nombre</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (idModulo > 0)
+    {
+        <button class="btn btn-primary mb-3" @onclick="AbrirNuevo">Nuevo horario</button>
+
+        <table class="table table-sm table-bordered">
+            <thead><tr><th>Curso</th><th>Día</th><th>Hora inicio</th><th>Hora fin</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (var h in horarios)
+                {
+                    <tr>
+                        <td>@h.Curso?.Codigo</td>
+                        <td>@h.DiaSemana</td>
+                        <td>@h.HoraInicio.ToString(@"hh\:mm")</td>
+                        <td>@h.HoraFin.ToString(@"hh\:mm")</td>
+                        <td><span class="badge bg-@(h.Estado == "activo" ? "success" : "secondary")">@h.Estado</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (mostrarModal)
+        {
+            <div class="modal show d-block" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header"><h5>Nuevo horario</h5></div>
+                        <EditForm Model="@nuevo" OnValidSubmit="@Guardar">
+                            <DataAnnotationsValidator />
+                            <div class="modal-body">
+                                <div class="mb-2"><label class="form-label">Curso</label><select class="form-select" @bind="nuevo.IdCurso">@foreach (var c in cursos) { <option value="@c.Id">@c.Codigo</option> }</select></div>
+                                <div class="mb-2"><label class="form-label">Día</label><InputText class="form-control" @bind-Value="nuevo.DiaSemana" placeholder="Ej: Lunes" /></div>
+                                <div class="mb-2"><label class="form-label">Hora inicio (HH:mm)</label><InputText class="form-control" @bind-Value="horaInicioStr" placeholder="08:00" /></div>
+                                <div class="mb-2"><label class="form-label">Hora fin (HH:mm)</label><InputText class="form-control" @bind-Value="horaFinStr" placeholder="10:00" /></div>
+                                <div class="mb-2"><label class="form-label">Estado</label><select class="form-select" @bind="nuevo.Estado"><option value="activo">Activo</option><option value="cerrado">Cerrado</option></select></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar</button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private int idModulo;
+    private List<Modulo> modulos = new();
+    private List<Horario> horarios = new();
+    private List<Curso> cursos = new();
+    private bool mostrarModal;
+    private Horario nuevo = new();
+    private string horaInicioStr = "08:00";
+    private string horaFinStr = "10:00";
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        modulos = Db.Modulos.OrderByDescending(m => m.FechaInicio).ToList();
+        cursos = Db.Cursos.OrderBy(c => c.Codigo).ToList();
+    }
+
+    private void CargarHorarios()
+    {
+        horarios = idModulo <= 0 ? new List<Horario>() : Db.Horarios.Include(h => h.Curso).Where(h => h.IdModulo == idModulo).OrderBy(h => h.Curso!.Codigo).ToList();
+    }
+
+    private void AbrirNuevo()
+    {
+        nuevo = new Horario { IdModulo = idModulo, Estado = "activo", HoraInicio = new TimeOnly(8, 0), HoraFin = new TimeOnly(10, 0) };
+        horaInicioStr = "08:00";
+        horaFinStr = "10:00";
+        mostrarModal = true;
+    }
+
+    private void CerrarModal() => mostrarModal = false;
+
+    private void Guardar()
+    {
+        if (TimeOnly.TryParse(horaInicioStr, out var hi)) nuevo.HoraInicio = hi;
+        if (TimeOnly.TryParse(horaFinStr, out var hf)) nuevo.HoraFin = hf;
+        nuevo.IdModulo = idModulo;
+        Db.Horarios.Add(nuevo);
+        Db.SaveChanges();
+        CerrarModal();
+        CargarHorarios();
+    }
+}

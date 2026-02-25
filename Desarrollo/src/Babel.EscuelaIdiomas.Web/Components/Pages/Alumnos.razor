@@ -1,0 +1,80 @@
+@page "/alumnos"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Alumnos - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Gestión de alumnos</h2>
+
+    <button class="btn btn-primary mb-3" @onclick="AbrirNuevo">Nuevo alumno</button>
+
+    <table class="table table-sm">
+        <thead><tr><th>Id</th><th>Nombre</th><th>Apellidos</th><th>Documento</th><th>Email</th></tr></thead>
+        <tbody>
+            @foreach (var a in alumnos)
+            {
+                <tr>
+                    <td>@a.Id</td>
+                    <td>@a.Nombre</td>
+                    <td>@a.Apellidos</td>
+                    <td>@a.Documento</td>
+                    <td>@a.Email</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (mostrarModal)
+    {
+        <div class="modal show d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header"><h5>Nuevo alumno</h5></div>
+                    <EditForm Model="@nuevo" OnValidSubmit="@Guardar">
+                        <DataAnnotationsValidator />
+                        <div class="modal-body">
+                            <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="nuevo.Nombre" /></div>
+                            <div class="mb-2"><label class="form-label">Apellidos</label><InputText class="form-control" @bind-Value="nuevo.Apellidos" /></div>
+                            <div class="mb-2"><label class="form-label">Documento</label><InputText class="form-control" @bind-Value="nuevo.Documento" /></div>
+                            <div class="mb-2"><label class="form-label">Email</label><InputText class="form-control" @bind-Value="nuevo.Email" /></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private List<Alumno> alumnos = new();
+    private bool mostrarModal;
+    private Alumno nuevo = new() { FechaRegistro = DateTime.UtcNow };
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        Cargar();
+    }
+
+    private void Cargar() => alumnos = Db.Alumnos.OrderBy(a => a.Apellidos).ToList();
+
+    private void AbrirNuevo() { nuevo = new Alumno { FechaRegistro = DateTime.UtcNow }; mostrarModal = true; }
+    private void CerrarModal() => mostrarModal = false;
+
+    private void Guardar()
+    {
+        Db.Alumnos.Add(nuevo);
+        Db.SaveChanges();
+        CerrarModal();
+        Cargar();
+    }
+}

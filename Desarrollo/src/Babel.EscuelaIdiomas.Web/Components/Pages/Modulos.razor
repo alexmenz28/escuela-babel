@@ -1,0 +1,92 @@
+@page "/modulos"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Módulos - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Módulos académicos</h2>
+    <p class="text-muted">Periodos lectivos para inscribir alumnos y organizar cursos.</p>
+
+    <button class="btn btn-primary mb-3" @onclick="AbrirNuevo">Nuevo módulo</button>
+
+    <table class="table table-sm table-bordered">
+        <thead><tr><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
+        <tbody>
+            @foreach (var m in modulos)
+            {
+                <tr>
+                    <td>@m.Nombre</td>
+                    <td>@m.FechaInicio.ToString("dd/MM/yyyy")</td>
+                    <td>@m.FechaFin.ToString("dd/MM/yyyy")</td>
+                    <td><span class="badge bg-@(m.Estado == "abierto" ? "success" : "secondary")">@m.Estado</span></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (mostrarModal)
+    {
+        <div class="modal show d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header"><h5>Nuevo módulo</h5></div>
+                    <EditForm Model="@nuevo" OnValidSubmit="@Guardar">
+                        <DataAnnotationsValidator />
+                        <div class="modal-body">
+                            <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="nuevo.Nombre" placeholder="Ej: Módulo 2025-1" /></div>
+                            <div class="mb-2"><label class="form-label">Fecha inicio</label><InputDate class="form-control" @bind-Value="nuevo.FechaInicio" /></div>
+                            <div class="mb-2"><label class="form-label">Fecha fin</label><InputDate class="form-control" @bind-Value="nuevo.FechaFin" /></div>
+                            <div class="mb-2">
+                                <label class="form-label">Estado</label>
+                                <select class="form-select" @bind="nuevo.Estado">
+                                    <option value="abierto">Abierto</option>
+                                    <option value="cerrado">Cerrado</option>
+                                    <option value="en_curso">En curso</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private List<Modulo> modulos = new();
+    private bool mostrarModal;
+    private Modulo nuevo = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        Cargar();
+    }
+
+    private void Cargar() => modulos = Db.Modulos.OrderByDescending(m => m.FechaInicio).ToList();
+
+    private void AbrirNuevo()
+    {
+        nuevo = new Modulo { FechaInicio = DateOnly.FromDateTime(DateTime.Today), FechaFin = DateOnly.FromDateTime(DateTime.Today.AddMonths(3)), Estado = "abierto" };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal() => mostrarModal = false;
+
+    private void Guardar()
+    {
+        Db.Modulos.Add(nuevo);
+        Db.SaveChanges();
+        CerrarModal();
+        Cargar();
+    }
+}

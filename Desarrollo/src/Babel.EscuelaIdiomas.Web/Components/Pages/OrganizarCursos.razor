@@ -1,0 +1,55 @@
+@page "/organizar-cursos"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Organizar cursos - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Organización automática de cursos</h2>
+    <p class="text-muted">Ejecute un día antes del inicio del módulo. Asigna aulas y grupos según las reglas de negocio.</p>
+
+    <div class="mb-3">
+        <label class="form-label">Módulo</label>
+        <select class="form-select w-auto d-inline-block" @bind="idModulo">
+            <option value="0">-- Seleccione módulo --</option>
+            @foreach (var m in modulos)
+            {
+                <option value="@m.Id">@m.Nombre</option>
+            }
+        </select>
+        <button class="btn btn-primary ms-2" @onclick="Ejecutar" disabled="@(idModulo <= 0)">Ejecutar asignación</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(mensaje)) { <div class="alert alert-success">@mensaje</div> }
+    @if (!string.IsNullOrEmpty(error)) { <div class="alert alert-danger">@error</div> }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private int idModulo;
+    private List<Modulo> modulos = new();
+    private string? mensaje, error;
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        modulos = Db.Modulos.OrderByDescending(m => m.FechaInicio).ToList();
+    }
+
+    private async Task Ejecutar()
+    {
+        mensaje = error = null;
+        try
+        {
+            await Db.Database.ExecuteSqlRawAsync($"EXEC sp_AsignacionAutomatica {idModulo}");
+            mensaje = "Asignación automática completada.";
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+}

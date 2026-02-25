@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Babel.EscuelaIdiomas.Data/Babel.EscuelaIdiomas.Data.csproj" />
+    <Project Path="src/Babel.EscuelaIdiomas.Web/Babel.EscuelaIdiomas.Web.csproj" />
+  </Folder>
+</Solution>

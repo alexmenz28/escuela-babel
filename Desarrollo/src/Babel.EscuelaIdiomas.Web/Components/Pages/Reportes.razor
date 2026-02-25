@@ -1,0 +1,157 @@
+@page "/reportes"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Reportes - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Reportes académicos</h2>
+
+    <div class="mb-4">
+        <label class="form-label">Módulo</label>
+        <select class="form-select w-auto d-inline-block" @bind="idModulo" @bind:after="CargarDatos">
+            <option value="0">-- Seleccione módulo --</option>
+            @foreach (var m in modulos)
+            {
+                <option value="@m.Id">@m.Nombre</option>
+            }
+        </select>
+    </div>
+
+    @if (idModulo > 0)
+    {
+        <h5>Alumnos por curso</h5>
+        <table class="table table-sm table-bordered">
+            <thead><tr><th>Curso</th><th>Cantidad</th></tr></thead>
+            <tbody>
+                @foreach (var r in alumnosPorCurso)
+                {
+                    <tr><td>@r.Codigo</td><td>@r.Cantidad</td></tr>
+                }
+            </tbody>
+        </table>
+
+        <h5 class="mt-4">Historial por estudiante</h5>
+        <select class="form-select w-auto mb-2" @bind="idAlumno" @bind:after="CargarHistorial">
+            <option value="0">-- Seleccione alumno --</option>
+            @foreach (var a in alumnos)
+            {
+                <option value="@a.Id">@a.Apellidos, @a.Nombre</option>
+            }
+        </select>
+        @if (idAlumno > 0 && historial.Any())
+        {
+            <table class="table table-sm">
+                <thead><tr><th>Curso</th><th>Módulo</th><th>Nota</th></tr></thead>
+                <tbody>
+                    @foreach (var h in historial)
+                    {
+                        <tr><td>@h.CodigoCurso</td><td>@h.NombreModulo</td><td>@(h.ValorNota?.ToString("N2") ?? "-")</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <h5 class="mt-4">Lista de alumnos por grupo (imprimir)</h5>
+        <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="ImprimirListas" disabled="@(!listasPorGrupo.Any())">Imprimir listas</button>
+        <div id="listas-para-imprimir">
+            @foreach (var g in listasPorGrupo)
+            {
+                <div class="border rounded p-3 mb-3">
+                    <strong>@g.NombreGrupo</strong> — @g.CodigoCurso · @g.DiaSemana · Aula @g.NombreAula
+                    <table class="table table-sm mt-2 mb-0">
+                        <thead><tr><th>#</th><th>Apellidos</th><th>Nombre</th><th>Documento</th><th>Email</th></tr></thead>
+                        <tbody>
+                            @foreach (var (idx, a) in g.Alumnos.Select((a, i) => (i + 1, a)))
+                            {
+                                <tr><td>@idx</td><td>@a.Apellidos</td><td>@a.Nombre</td><td>@a.Documento</td><td>@a.Email</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private int idModulo, idAlumno;
+    private List<Modulo> modulos = new();
+    private List<Alumno> alumnos = new();
+    private List<CursoCantidad> alumnosPorCurso = new();
+    private List<HistorialItem> historial = new();
+    private List<ListaGrupo> listasPorGrupo = new();
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        modulos = Db.Modulos.OrderByDescending(m => m.FechaInicio).ToList();
+        alumnos = Db.Alumnos.OrderBy(a => a.Apellidos).ToList();
+    }
+
+    private void CargarDatos()
+    {
+        alumnosPorCurso = new List<CursoCantidad>();
+        historial = new List<HistorialItem>();
+        listasPorGrupo = new List<ListaGrupo>();
+        if (idModulo <= 0) return;
+        var horarios = Db.Horarios.Where(h => h.IdModulo == idModulo).Include(h => h.Curso).ToList();
+        var horarioIds = horarios.Select(h => h.Id).ToHashSet();
+        var conteo = Db.Inscripciones.Where(i => i.Estado == "activo" && horarioIds.Contains(i.IdHorario))
+            .GroupBy(i => i.IdHorario).ToDictionary(g => g.Key, g => g.Count());
+        alumnosPorCurso = horarios
+            .GroupBy(h => h.Curso!.Codigo)
+            .Select(g => new CursoCantidad { Codigo = g.Key, Cantidad = g.Sum(h => conteo.GetValueOrDefault(h.Id, 0)) })
+            .OrderBy(x => x.Codigo).ToList();
+        var grupos = Db.Grupos
+            .Where(g => g.Horario.IdModulo == idModulo)
+            .Include(g => g.Horario).ThenInclude(h => h!.Curso)
+            .Include(g => g.Aula)
+            .OrderBy(g => g.Horario!.Curso!.Codigo).ThenBy(g => g.NombreGrupo)
+            .ToList();
+        var grupoIds = grupos.Select(g => g.Id).ToList();
+        var alumnosPorGrupoId = Db.Inscripciones
+            .Where(i => i.IdGrupo != null && grupoIds.Contains(i.IdGrupo.Value) && i.Estado == "activo")
+            .Include(i => i.Alumno)
+            .ToList()
+            .GroupBy(i => i.IdGrupo!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(i => i.Alumno!).OrderBy(a => a.Apellidos).ToList());
+        listasPorGrupo = grupos.Select(g => new ListaGrupo
+        {
+            NombreGrupo = g.NombreGrupo,
+            CodigoCurso = g.Horario?.Curso?.Codigo ?? "",
+            DiaSemana = g.Horario?.DiaSemana ?? "",
+            NombreAula = g.Aula?.Nombre ?? "",
+            Alumnos = alumnosPorGrupoId.TryGetValue(g.Id, out var lista) ? lista : new List<Alumno>()
+        }).ToList();
+    }
+
+    private async Task ImprimirListas() => await JS.InvokeVoidAsync("eval", "window.print()");
+
+    private void CargarHistorial()
+    {
+        historial = new List<HistorialItem>();
+        if (idAlumno <= 0) return;
+        var ins = Db.Inscripciones
+            .Where(i => i.IdAlumno == idAlumno && i.IdGrupo != null)
+            .Include(i => i.Horario).ThenInclude(h => h!.Curso)
+            .Include(i => i.Horario).ThenInclude(h => h!.Modulo)
+            .ToList();
+        var notaIds = Db.Notas.Where(n => n.IdAlumno == idAlumno).ToDictionary(n => n.IdGrupo, n => n.Valor);
+        historial = ins.Select(i => new HistorialItem
+        {
+            CodigoCurso = i.Horario.Curso?.Codigo ?? "",
+            NombreModulo = i.Horario.Modulo?.Nombre ?? "",
+            ValorNota = i.IdGrupo.HasValue && notaIds.TryGetValue(i.IdGrupo.Value, out decimal val) ? val : (decimal?)null
+        }).OrderBy(h => h.NombreModulo).ThenBy(h => h.CodigoCurso).ToList();
+    }
+
+    private class CursoCantidad { public string Codigo { get; set; } = ""; public int Cantidad { get; set; } }
+    private class HistorialItem { public string CodigoCurso { get; set; } = ""; public string NombreModulo { get; set; } = ""; public decimal? ValorNota { get; set; } }
+    private class ListaGrupo { public string NombreGrupo { get; set; } = ""; public string CodigoCurso { get; set; } = ""; public string DiaSemana { get; set; } = ""; public string NombreAula { get; set; } = ""; public List<Alumno> Alumnos { get; set; } = new(); }
+}

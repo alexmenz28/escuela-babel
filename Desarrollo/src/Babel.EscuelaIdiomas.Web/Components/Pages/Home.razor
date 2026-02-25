@@ -1,0 +1,22 @@
+@page "/"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Inicio - Babel</PageTitle>
+
+<div class="px-4">
+    <h1>Escuela de Idiomas Babel</h1>
+    @if (Auth.IsAuthenticated)
+    {
+        <p>Bienvenido. Use el menú para gestionar alumnos, inscripciones, organizar cursos o reportes.</p>
+        <p><strong>Rol:</strong> @Auth.RolNombre</p>
+    }
+    else
+    {
+        <p><a href="/login">Inicie sesión</a> para acceder al sistema.</p>
+    }
+</div>
+
+@code {
+    [Inject] private AuthService Auth { get; set; } = null!;
+}

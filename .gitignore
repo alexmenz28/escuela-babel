@@ -1,0 +1,30 @@
+# Build
+bin/
+obj/
+out/
+
+# IDE / Editor
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# ASP.NET
+*.log
+*.cache
+
+# User secrets (no subir claves)
+appsettings.*.local.json
+secrets.json
+
+# OS
+Thumbs.db
+.DS_Store

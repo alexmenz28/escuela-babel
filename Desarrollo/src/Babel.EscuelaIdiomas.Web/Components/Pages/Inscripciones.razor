@@ -1,0 +1,103 @@
+@page "/inscripciones"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Inscribir alumno - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Inscribir alumno a curso</h2>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Módulo</label>
+            <select class="form-select" @bind="idModulo" @bind:after="CargarHorarios">
+                <option value="0">-- Seleccione módulo --</option>
+                @foreach (var m in modulos)
+                {
+                    <option value="@m.Id">@m.Nombre</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <EditForm Model="@model" OnValidSubmit="@Inscribir">
+        <DataAnnotationsValidator />
+        <div class="row mb-2">
+            <div class="col-md-4">
+                <label class="form-label">Alumno</label>
+                <select class="form-select" @bind="model.IdAlumno" required>
+                    <option value="0">-- Seleccione alumno --</option>
+                    @foreach (var a in alumnos)
+                    {
+                        <option value="@a.Id">@a.Apellidos, @a.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Curso / Horario</label>
+                <select class="form-select" @bind="model.IdHorario" required>
+                    <option value="0">-- Seleccione horario --</option>
+                    @foreach (var h in horarios)
+                    {
+                        <option value="@h.Id">@h.Curso.Codigo - @h.DiaSemana @h.HoraInicio</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(mensaje)) { <div class="alert alert-info">@mensaje</div> }
+        @if (!string.IsNullOrEmpty(error)) { <div class="alert alert-danger">@error</div> }
+        <button type="submit" class="btn btn-primary">Inscribir</button>
+    </EditForm>
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private int idModulo;
+    private List<Modulo> modulos = new();
+    private List<Alumno> alumnos = new();
+    private List<Horario> horarios = new();
+    private InscripcionModel model = new();
+    private string? mensaje, error;
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAdministrador) { Nav.NavigateTo("/"); return; }
+        modulos = Db.Modulos.Where(m => m.Estado == "abierto").OrderByDescending(m => m.FechaInicio).ToList();
+        alumnos = Db.Alumnos.OrderBy(a => a.Apellidos).ToList();
+    }
+
+    private void CargarHorarios()
+    {
+        error = mensaje = null;
+        horarios = idModulo <= 0 ? new List<Horario>() : Db.Horarios
+            .Include(h => h.Curso)
+            .Where(h => h.IdModulo == idModulo && h.Estado == "activo")
+            .OrderBy(h => h.Curso!.Codigo).ToList();
+    }
+
+    private void Inscribir()
+    {
+        error = mensaje = null;
+        if (model.IdAlumno <= 0 || model.IdHorario <= 0) { error = "Seleccione alumno y horario."; return; }
+        if (Db.Inscripciones.Any(i => i.IdAlumno == model.IdAlumno && i.IdHorario == model.IdHorario && i.Estado == "activo"))
+        {
+            error = "El alumno ya está inscrito en ese horario.";
+            return;
+        }
+        Db.Inscripciones.Add(new Inscripcion
+        {
+            IdAlumno = model.IdAlumno,
+            IdHorario = model.IdHorario,
+            Estado = "activo",
+            FechaInscripcion = DateTime.UtcNow
+        });
+        Db.SaveChanges();
+        mensaje = "Inscripción registrada correctamente.";
+        model = new InscripcionModel();
+    }
+
+    private class InscripcionModel { public int IdAlumno { get; set; } public int IdHorario { get; set; } }
+}

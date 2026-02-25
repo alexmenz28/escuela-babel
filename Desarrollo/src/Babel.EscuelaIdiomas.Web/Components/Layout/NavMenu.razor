@@ -1,0 +1,68 @@
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Escuela Babel</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Menú" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        @if (Auth.IsAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
+            </div>
+            @if (Auth.IsAdministrador)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="modulos">Módulos</NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="horarios">Horarios</NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="profesores">Profesores</NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="alumnos">Alumnos</NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="inscripciones">Inscribir alumno</NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="organizar-cursos">Organizar cursos</NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="reportes">Reportes</NavLink>
+                </div>
+            }
+            @if (Auth.IsProfesor)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="mis-grupos">Mis grupos / Notas</NavLink>
+                </div>
+            }
+            <div class="nav-item px-3">
+                <a class="nav-link" href="#" @onclick:preventDefault="true" @onclick="CerrarSesion">Cerrar sesión</a>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">Iniciar sesión</NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private void CerrarSesion()
+    {
+        Auth.SignOut();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

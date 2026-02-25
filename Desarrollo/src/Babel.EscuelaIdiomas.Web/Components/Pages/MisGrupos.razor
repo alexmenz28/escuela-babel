@@ -1,0 +1,100 @@
+@page "/mis-grupos"
+@rendermode InteractiveServer
+@layout MainLayout
+
+<PageTitle>Mis grupos / Notas - Babel</PageTitle>
+
+<div class="px-4">
+    <h2>Mis grupos</h2>
+
+    @if (grupos.Count == 0)
+    {
+        <p>No tiene grupos asignados.</p>
+    }
+    else
+    {
+        @foreach (var g in grupos)
+        {
+            <div class="card mb-3">
+                <div class="card-header">@g.NombreGrupo - @g.Horario.Curso.Codigo @g.Horario.DiaSemana</div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead><tr><th>Alumno</th><th>Nota</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var i in g.Inscripciones.Where(x => x.Estado == "activo"))
+                            {
+                                var nota = notasPorAlumno.GetValueOrDefault((i.IdAlumno, g.Id));
+                                <tr>
+                                    <td>@i.Alumno.Apellidos, @i.Alumno.Nombre</td>
+                                    <td>
+                                        @if (editando == (i.IdAlumno, g.Id))
+                                        {
+                                            <input type="number" min="0" max="100" step="0.01" class="form-control form-control-sm w-25 d-inline-block" @bind="valorEdit" />
+                                            <button class="btn btn-sm btn-success" @onclick="() => GuardarNota(i.IdAlumno, g.Id)">Guardar</button>
+                                            <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">Cancelar</button>
+                                        }
+                                        else
+                                        {
+                                            @(nota?.Valor.ToString("N2") ?? "-")
+                                            <button class="btn btn-sm btn-outline-primary ms-1" @onclick="() => EditarNota(i.IdAlumno, g.Id, nota?.Valor)">Editar</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject] private BabelDbContext Db { get; set; } = null!;
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private List<Grupo> grupos = new();
+    private Dictionary<(int idAlumno, int idGrupo), Nota> notasPorAlumno = new();
+    private (int idAlumno, int idGrupo)? editando;
+    private decimal valorEdit;
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsProfesor || Auth.CurrentUser?.IdProfesor == null) { Nav.NavigateTo("/"); return; }
+        Cargar();
+    }
+
+    private void Cargar()
+    {
+        var idProf = Auth.CurrentUser!.IdProfesor!.Value;
+        grupos = Db.Grupos
+            .Include(g => g.Horario).ThenInclude(h => h!.Curso)
+            .Include(g => g.Inscripciones).ThenInclude(i => i!.Alumno)
+            .Where(g => g.IdProfesor == idProf && g.Estado == "activo")
+            .ToList();
+        var notas = Db.Notas.Where(n => n.IdProfesor == idProf).ToList();
+        notasPorAlumno = notas.ToDictionary(n => (n.IdAlumno, n.IdGrupo));
+    }
+
+    private void EditarNota(int idAlumno, int idGrupo, decimal? valor)
+    {
+        editando = (idAlumno, idGrupo);
+        valorEdit = valor ?? 0;
+    }
+
+    private void CancelarEdicion() => editando = null;
+
+    private void GuardarNota(int idAlumno, int idGrupo)
+    {
+        var idProf = Auth.CurrentUser!.IdProfesor!.Value;
+        var n = Db.Notas.FirstOrDefault(x => x.IdAlumno == idAlumno && x.IdGrupo == idGrupo);
+        if (n != null)
+            n.Valor = valorEdit;
+        else
+            Db.Notas.Add(new Nota { IdAlumno = idAlumno, IdGrupo = idGrupo, IdProfesor = idProf, Valor = valorEdit, FechaRegistro = DateTime.UtcNow });
+        Db.SaveChanges();
+        editando = null;
+        Cargar();
+    }
+}
