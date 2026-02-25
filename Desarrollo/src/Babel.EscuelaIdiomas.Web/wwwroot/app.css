@@ -20,6 +20,35 @@ a, .btn-link {
     padding-top: 1.1rem;
 }
 
+/* Responsive: contenido principal sin overflow horizontal */
+article.content, .content.px-4 {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+/* Tablas responsivas: scroll horizontal en móvil */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* Modales centrados y responsivos */
+.modal.show .modal-dialog {
+    margin: 1rem auto;
+    max-width: min(500px, calc(100vw - 2rem));
+}
+.modal.show .modal-dialog.modal-dialog-centered {
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 2rem);
+}
+@media (max-width: 576px) {
+    .modal.show .modal-content {
+        margin: 0.5rem;
+    }
+}
+
 h1:focus {
     outline: none;
 }

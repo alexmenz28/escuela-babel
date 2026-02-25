@@ -10,6 +10,7 @@
 
     <button class="btn btn-primary mb-3" @onclick="AbrirNuevo">Nuevo módulo</button>
 
+    <div class="table-responsive">
     <table class="table table-sm table-bordered">
         <thead><tr><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
         <tbody>
@@ -24,11 +25,12 @@
             }
         </tbody>
     </table>
+    </div>
 
     @if (mostrarModal)
     {
-        <div class="modal show d-block" tabindex="-1">
-            <div class="modal-dialog">
+        <div class="modal show d-block" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header"><h5>Nuevo módulo</h5></div>
                     <EditForm Model="@nuevo" OnValidSubmit="@Guardar">

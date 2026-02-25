@@ -10,6 +10,7 @@
 
     <button class="btn btn-primary mb-3" @onclick="AbrirNuevo">Nuevo profesor</button>
 
+    <div class="table-responsive">
     <table class="table table-sm table-bordered">
         <thead><tr><th>Nombre</th><th>Apellidos</th><th>Email</th><th>Usuario</th><th></th></tr></thead>
         <tbody>
@@ -26,11 +27,12 @@
             }
         </tbody>
     </table>
+    </div>
 
     @if (mostrarModal)
     {
-        <div class="modal show d-block" tabindex="-1">
-            <div class="modal-dialog">
+        <div class="modal show d-block" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header"><h5>Nuevo profesor</h5></div>
                     <EditForm Model="@nuevo" OnValidSubmit="@Guardar">
@@ -52,8 +54,8 @@
 
     @if (mostrarModalUsuario)
     {
-        <div class="modal show d-block" tabindex="-1">
-            <div class="modal-dialog">
+        <div class="modal show d-block" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header"><h5>Crear usuario para @profesorSeleccionado?.Apellidos, @profesorSeleccionado?.Nombre</h5></div>
                     <EditForm Model="@usuarioModel" OnValidSubmit="@GuardarUsuario">
