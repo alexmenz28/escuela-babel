@@ -1,1 +1,0 @@
-Mencionar que la gestión de cursos y aulas se implementará en una próxima actualización, debido a que el documento menciona cual es la parte más importante.

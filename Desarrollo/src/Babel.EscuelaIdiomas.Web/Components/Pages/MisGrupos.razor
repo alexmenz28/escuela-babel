@@ -7,6 +7,11 @@
 <div class="px-4">
     <h2>Mis grupos</h2>
 
+    @if (!string.IsNullOrEmpty(mensajeNota))
+    {
+        <div class="alert alert-danger mb-3">@mensajeNota</div>
+    }
+
     @if (grupos.Count == 0)
     {
         <p>No tiene grupos asignados.</p>
@@ -60,6 +65,7 @@
     private Dictionary<(int idAlumno, int idGrupo), Nota> notasPorAlumno = new();
     private (int idAlumno, int idGrupo)? editando;
     private decimal valorEdit;
+    private string? mensajeNota;
 
     protected override void OnInitialized()
     {
@@ -83,12 +89,19 @@
     {
         editando = (idAlumno, idGrupo);
         valorEdit = valor ?? 0;
+        mensajeNota = null;
     }
 
-    private void CancelarEdicion() => editando = null;
+    private void CancelarEdicion() { editando = null; mensajeNota = null; }
 
     private void GuardarNota(int idAlumno, int idGrupo)
     {
+        mensajeNota = null;
+        if (valorEdit < 0 || valorEdit > 100)
+        {
+            mensajeNota = "La nota debe estar entre 0 y 100.";
+            return;
+        }
         var idProf = Auth.CurrentUser!.IdProfesor!.Value;
         var n = Db.Notas.FirstOrDefault(x => x.IdAlumno == idAlumno && x.IdGrupo == idGrupo);
         if (n != null)
